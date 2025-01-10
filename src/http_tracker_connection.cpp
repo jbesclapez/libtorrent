@@ -80,8 +80,6 @@ namespace libtorrent {
 		if (tracker_req().kind & tracker_request::scrape_request)
 		{
 			// find and replace "announce" with "scrape"
-			// in request
-
 			std::size_t pos = url.find("announce");
 			if (pos == std::string::npos)
 			{
@@ -91,11 +89,11 @@ namespace libtorrent {
 			url.replace(pos, 8, "scrape");
 		}
 
-#if TORRENT_USE_I2P
+	#if TORRENT_USE_I2P
 		bool const i2p = is_i2p_url(url);
-#else
+	#else
 		static const bool i2p = false;
-#endif
+	#endif
 
 		aux::session_settings const& settings = m_man.settings();
 
@@ -105,8 +103,6 @@ namespace libtorrent {
 		auto const arguments_start = url.find('?');
 		if (arguments_start != std::string::npos)
 		{
-			// tracker URLs that come pre-baked with query string arguments will be
-			// rejected when SSRF-mitigation is enabled
 			bool const ssrf_mitigation = settings.get_bool(settings_pack::ssrf_mitigation);
 			if (ssrf_mitigation && has_tracker_query_string(string_view(url).substr(arguments_start + 1)))
 			{
@@ -125,11 +121,48 @@ namespace libtorrent {
 
 		if (!(tracker_req().kind & tracker_request::scrape_request))
 		{
+			// -------------------------------------------------------------------
+			// SUPPRESS COMPLETED EVENT:
+			// If the event is "completed", force it to 'none'
+			// so it never reports a completed event to the tracker.
+			// -------------------------------------------------------------------
+			event_t send_event = tracker_req().event;
+			if (send_event == event_t::completed)
+			{
+				send_event = event_t::none;
+			}
+
 			static aux::array<const char*, 4> const event_string{{{"completed", "started", "stopped", "paused"}}};
 
+			// -------------------------------------------------------------------
+			// ALWAYS REPORT UPLOADED=0, DOWNLOADED=0, LEFT=TOTAL_SIZE
+			//
+			//  1) total_size is used for 'left'
+			//  2) uploaded = 0
+			//  3) downloaded = 0
+			// -------------------------------------------------------------------
+			std::int64_t total_size = 0;
+
+			// If your code has access to m_torrent, for example:
+			// total_size = m_torrent->torrent_file().total_size();
+			//
+			// or if you have access to another pointer that holds the torrent info
+			// just replace it with your logic. Below is an example:
+			if (m_torrent && m_torrent->valid_metadata())
+			{
+				total_size = m_torrent->torrent_file().total_size();
+			}
+			else
+			{
+				// fallback to the original 'left' if you do not have torrent_file
+				// but for the stealth mod, we strongly prefer total_size
+				total_size = tracker_req().left;
+			}
+
 			char str[1024];
-			std::snprintf(str, sizeof(str)
-				, "&peer_id=%s"
+			// Notice how we hardcode uploaded=0 and downloaded=0
+			std::snprintf(str, sizeof(str),
+				"&peer_id=%s"
 				"&port=%d"
 				"&uploaded=%" PRId64
 				"&downloaded=%" PRId64
@@ -139,25 +172,26 @@ namespace libtorrent {
 				"%s%s" // event
 				"&numwant=%d"
 				"&compact=1"
-				"&no_peer_id=1"
-				, escape_string({tracker_req().pid.data(), 20}).c_str()
-				// the i2p tracker seems to verify that the port is not 0,
-				// even though it ignores it otherwise
-				, tracker_req().listen_port
-				, tracker_req().uploaded
-				, tracker_req().downloaded
-				, tracker_req().left
-				, tracker_req().corrupt
-				, tracker_req().key
-				, (tracker_req().event != event_t::none) ? "&event=" : ""
-				, (tracker_req().event != event_t::none) ? event_string[static_cast<int>(tracker_req().event) - 1] : ""
-				, tracker_req().num_want);
+				"&no_peer_id=1",
+				escape_string({tracker_req().pid.data(), 20}).c_str(),
+				tracker_req().listen_port,
+				static_cast<std::int64_t>(0),  // <--- always 0
+				static_cast<std::int64_t>(0),  // <--- always 0
+				total_size,                    // <--- always the total torrent size
+				tracker_req().corrupt,
+				tracker_req().key,
+				(send_event != event_t::none) ? "&event=" : "",
+				(send_event != event_t::none) ? event_string[static_cast<int>(send_event) - 1] : "",
+				tracker_req().num_want
+			);
 			url += str;
-#if !defined TORRENT_DISABLE_ENCRYPTION
+
+	#if !defined TORRENT_DISABLE_ENCRYPTION
 			if (settings.get_int(settings_pack::in_enc_policy) != settings_pack::pe_disabled
 				&& settings.get_bool(settings_pack::announce_crypto_support))
 				url += "&supportcrypto=1";
-#endif
+	#endif
+
 			if (settings.get_bool(settings_pack::report_redundant_bytes))
 			{
 				url += "&redundant=";
@@ -169,7 +203,7 @@ namespace libtorrent {
 				url += escape_string(tracker_req().trackerid);
 			}
 
-#if TORRENT_USE_I2P
+	#if TORRENT_USE_I2P
 			if (i2p && tracker_req().i2pconn)
 			{
 				if (tracker_req().i2pconn->local_endpoint().empty())
@@ -184,7 +218,7 @@ namespace libtorrent {
 				}
 			}
 			else
-#endif
+	#endif
 			if (!settings.get_bool(settings_pack::anonymous_mode))
 			{
 				std::string const& announce_ip = settings.get_str(settings_pack::announce_ip);
@@ -230,9 +264,9 @@ namespace libtorrent {
 			, std::bind(&http_tracker_connection::on_connect, shared_from_this(), _1)
 			, std::bind(&http_tracker_connection::on_filter, shared_from_this(), _1, _2)
 			, std::bind(&http_tracker_connection::on_filter_hostname, shared_from_this(), _1, _2)
-#if TORRENT_USE_SSL
+	#if TORRENT_USE_SSL
 			, tracker_req().ssl_ctx
-#endif
+	#endif
 			);
 
 		int const timeout = tracker_req().event == event_t::stopped
@@ -256,38 +290,32 @@ namespace libtorrent {
 				return bind_info_t{ls.device(), ls.get_local_endpoint().address()};
 		}();
 
-		// when sending stopped requests, prefer the cached DNS entry
-		// to avoid being blocked for slow or failing responses. Chances
-		// are that we're shutting down, and this should be a best-effort
-		// attempt. It's not worth stalling shutdown.
 		aux::proxy_settings ps(settings);
-		m_tracker_connection->get(url, seconds(timeout)
-			, ps.proxy_tracker_connections ? &ps : nullptr
-			, 5, user_agent, bi
-			, (tracker_req().event == event_t::stopped
+		m_tracker_connection->get(url, seconds(timeout),
+			ps.proxy_tracker_connections ? &ps : nullptr,
+			5, user_agent, bi,
+			(tracker_req().event == event_t::stopped
 				? aux::resolver_interface::cache_only : aux::resolver_flags{})
 				| aux::resolver_interface::abort_on_shutdown
-#if TORRENT_ABI_VERSION == 1
+	#if TORRENT_ABI_VERSION == 1
 			, tracker_req().auth
-#else
+	#else
 			, ""
-#endif
-#if TORRENT_USE_I2P
+	#endif
+	#if TORRENT_USE_I2P
 			, tracker_req().i2pconn
-#endif
-			);
+	#endif
+		);
 
 		// the url + 100 estimated header size
 		sent_bytes(int(url.size()) + 100);
 
-#ifndef TORRENT_DISABLE_LOGGING
-
-		std::shared_ptr<request_callback> cb = requester();
-		if (cb)
+	#ifndef TORRENT_DISABLE_LOGGING
+		if (auto cb = requester())
 		{
 			cb->debug_log("==> TRACKER_REQUEST [ url: %s ]", url.c_str());
 		}
-#endif
+	#endif
 	}
 
 	void http_tracker_connection::close()
