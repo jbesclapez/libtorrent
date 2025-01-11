@@ -19,6 +19,15 @@
         "random": "cpp",
         "stack": "cpp",
         "utility": "cpp",
-        "xutility": "cpp"
+        "xutility": "cpp",
+        "algorithm": "cpp",
+        "chrono": "cpp",
+        "functional": "cpp",
+        "optional": "cpp",
+        "system_error": "cpp",
+        "xlocmon": "cpp",
+        "xtr1common": "cpp",
+        "xlocinfo": "cpp",
+        "iosfwd": "cpp"
     }
 }

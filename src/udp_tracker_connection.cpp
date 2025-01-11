@@ -705,6 +705,9 @@ namespace libtorrent {
 		TORRENT_ASSERT(i != m_connection_cache.end());
 		if (i == m_connection_cache.end()) return;
 
+		// Calculate total size for 'left' field
+		std::int64_t const total_size = req.left + req.downloaded;
+
 		aux::write_int64(i->second.connection_id, out); // connection_id
 		aux::write_int32(action_t::announce, out); // action (announce)
 		aux::write_int32(m_transaction_id, out); // transaction_id
@@ -712,22 +715,17 @@ namespace libtorrent {
 		out = out.subspan(20);
 		std::copy(req.pid.begin(), req.pid.end(), out.data()); // peer_id
 		out = out.subspan(20);
-		
-		// Calculate total size like in HTTP tracker
-		std::int64_t const total_size = req.left + req.downloaded;
 
-		aux::write_int64(0, out);               // downloaded - force to 0
-		aux::write_int64(total_size, out);      // left - always total size
-		aux::write_int64(0, out);               // uploaded - force to 0
+		// Modify what we report to tracker
+		aux::write_int64(0, out);          // downloaded - never report downloads
+		aux::write_int64(total_size, out); // left - always report total size
+		aux::write_int64(0, out);          // uploaded - never report uploads
 
 		// Suppress completed event
 		event_t send_event = req.event;
 		if (send_event == event_t::completed)
-		{
 			send_event = event_t::none;
-		}
-		aux::write_int32(send_event, out);      // event
-
+		aux::write_int32(send_event, out); // event
 		// ip address
 		address_v4 announce_ip;
 

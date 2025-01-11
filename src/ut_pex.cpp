@@ -629,12 +629,16 @@ namespace libtorrent { namespace {
 
 namespace libtorrent {
 
-	std::shared_ptr<torrent_plugin> create_ut_pex_plugin(torrent_handle const&, client_data_t)
+	std::shared_ptr<torrent_plugin> create_ut_pex_plugin(torrent_handle const& th, client_data_t)
 	{
-		// Disable PEX by returning an empty plugin pointer
-		return {};
+		torrent* t = th.native_handle().get();
+		if (t->torrent_file().priv() || (t->torrent_file().is_i2p()
+			&& !t->settings().get_bool(settings_pack::allow_i2p_mixed)))
+		{
+			return {};
+		}
+		return std::make_shared<ut_pex_plugin>(*t);
 	}
-
 }
 
 #endif

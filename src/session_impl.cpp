@@ -5847,11 +5847,82 @@ namespace {
 #ifndef TORRENT_DISABLE_DHT
 
 	void session_impl::start_dht()
-{
-    // Do nothing. We don't even check settings_pack::enable_dht.
-    // This ensures DHT never starts.
-    return;
-}
+	{
+		INVARIANT_CHECK;
+
+		stop_dht();
+
+		if (!m_settings.get_bool(settings_pack::enable_dht)) return;
+
+		// postpone starting the DHT if we're still resolving the DHT router
+		if (m_outstanding_router_lookups > 0)
+		{
+#ifndef TORRENT_DISABLE_LOGGING
+			session_log("not starting DHT, outstanding router lookups: %d"
+				, m_outstanding_router_lookups);
+#endif
+			return;
+		}
+
+		if (m_abort)
+		{
+#ifndef TORRENT_DISABLE_LOGGING
+			session_log("not starting DHT, aborting");
+#endif
+			return;
+		}
+
+#ifndef TORRENT_DISABLE_LOGGING
+		session_log("starting DHT, running: %s, router lookups: %d"
+			, m_dht ? "true" : "false", m_outstanding_router_lookups);
+#endif
+
+		// TODO: refactor, move the storage to dht_tracker
+		m_dht_storage = m_dht_storage_constructor(m_settings);
+		m_dht = std::make_shared<dht::dht_tracker>(
+			static_cast<dht::dht_observer*>(this)
+			, m_io_context
+			, [this](aux::listen_socket_handle const& sock
+				, udp::endpoint const& ep
+				, span<char const> p
+				, error_code& ec
+				, udp_send_flags_t const flags)
+				{ send_udp_packet_listen(sock, ep, p, ec, flags); }
+			, m_settings
+			, m_stats_counters
+			, *m_dht_storage
+			, std::move(m_dht_state));
+
+		for (auto& s : m_listen_sockets)
+		{
+			if (s->ssl != transport::ssl
+				&& !(s->flags & listen_socket_t::local_network))
+			{
+				m_dht->new_socket(s);
+			}
+		}
+
+		for (auto const& n : m_dht_router_nodes)
+		{
+			m_dht->add_router_node(n);
+		}
+
+		for (auto const& n : m_dht_nodes)
+		{
+			m_dht->add_node(n);
+		}
+		m_dht_nodes.clear();
+		m_dht_nodes.shrink_to_fit();
+
+		auto cb = [this](
+			std::vector<std::pair<dht::node_entry, std::string>> const&)
+		{
+			if (m_alerts.should_post<dht_bootstrap_alert>())
+				m_alerts.emplace_alert<dht_bootstrap_alert>();
+		};
+
+		m_dht->start(cb);
+	}
 
 	void session_impl::stop_dht()
 	{
@@ -5957,7 +6028,7 @@ namespace {
 
 	void session_impl::start_dht_deprecated(entry const& startup_state)
 	{
-		m_settings.set_bool(settings_pack::enable_dht, false);
+		m_settings.set_bool(settings_pack::enable_dht, true);
 		std::vector<char> tmp;
 		bencode(std::back_inserter(tmp), startup_state);
 
