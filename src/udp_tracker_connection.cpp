@@ -712,10 +712,20 @@ namespace libtorrent {
 		out = out.subspan(20);
 		std::copy(req.pid.begin(), req.pid.end(), out.data()); // peer_id
 		out = out.subspan(20);
-		aux::write_int64(req.downloaded, out); // downloaded
-		aux::write_int64(req.left, out); // left
-		aux::write_int64(req.uploaded, out); // uploaded
-		aux::write_int32(req.event, out); // event
+		
+		// Force downloaded and uploaded to 0, keep left as total size
+		aux::write_int64(0, out); // downloaded - force to 0
+		aux::write_int64(req.left, out); // left - keep total size
+		aux::write_int64(0, out); // uploaded - force to 0
+
+		// Suppress completed event
+		event_t send_event = req.event;
+		if (send_event == event_t::completed)
+		{
+			send_event = event_t::none;
+		}
+		aux::write_int32(send_event, out); // event
+
 		// ip address
 		address_v4 announce_ip;
 
