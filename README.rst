@@ -30,6 +30,9 @@
 .. image:: https://bestpractices.coreinfrastructure.org/projects/3020/badge
     :target: https://bestpractices.coreinfrastructure.org/en/projects/3020
 
+.. image:: https://img.shields.io/github/stars/arvidn/libtorrent.svg?style=social
+    :target: https://github.com/arvidn/libtorrent
+
 libtorrent is an open source C++ library implementing the BitTorrent protocol,
 along with most popular extensions, making it suitable for real world
 deployment. It is configurable to be able to fit both servers and embedded
@@ -42,6 +45,7 @@ The main goals of libtorrent are to be efficient and easy to use.
 This build introduces the "Ghostrackers" modifications designed to enable stealth mode in BitTorrent communication. These changes ensure no upload or download statistics are reported to trackers and the total torrent size is always reported instead of the actual remaining download size.
 
 **Ghostrackers functionality includes:**
+
 - **No upload reporting:** Always reports uploaded data as `0` to the tracker.
 - **No download reporting:** Always reports downloaded data as `0` to the tracker.
 - **Total size for 'left':** Always reports the total torrent size for the 'left' field in tracker requests.
@@ -55,16 +59,44 @@ See `libtorrent.org`__ for more detailed build and usage instructions.
 
 .. __: https://libtorrent.org
 
-### Building Ghostrackers Build
+### Building Ghostrackers Build and qBittorrent
 
-To build with boost-build, make sure boost and boost-build are installed and run:
+To build and install libtorrent with the Ghostrackers changes, follow these steps:
 
-   b2
+.. code-block:: bash
 
-In the libtorrent root directory. To build the examples, run ``b2`` in the ``examples``
-directory.
+    # Build and Install libtorrent
+    clear
+    cd /path/to/libtorrent
+    git checkout GhostTrackers
+    git pull origin GhostTrackers
+    rm -rf build install
+    mkdir build install
+    cd build
+    cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/path/to/libtorrent/install
+    mingw32-make -j$(nproc)
+    mingw32-make install
 
-See `building.html`__ for more details on how to build and configure Ghostrackers build. For python bindings, see `the python docs`__.
+    # Configure and Build qBittorrent
+    cd /path/to/qBittorrent/build
+    rm -rf *
+    cmake .. -G "MinGW Makefiles" \
+      -DCMAKE_BUILD_TYPE=Release \
+      -DCMAKE_PREFIX_PATH=/path/to/libtorrent/install \
+      -DLibtorrent_DIR=/path/to/libtorrent/install/lib/cmake/LibtorrentRasterbar
+    mingw32-make -j$(nproc)
+
+    # Additional Configuration for qBittorrent
+    # Download the `dll.zip` file from the qBittorrent repository and extract it into the `build` directory of qBittorrent.
+    # Ensure to include the `libtorrent-rasterbar.dll` file located in the libtorrent build directory.
+
+    # Verify and Run
+    # find . -iname "qbittorrent.exe"
+    # ./src/app/qbittorrent.exe
+
+### Links and Documentation
+
+See `building.html`__ for more details on how to build and configure the Ghostrackers build. For python bindings, see `the python docs`__.
 
 libtorrent `ABI report`_.
 
