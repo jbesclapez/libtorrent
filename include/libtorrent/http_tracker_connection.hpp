@@ -41,57 +41,62 @@ POSSIBILITY OF SUCH DAMAGE.
 #include "libtorrent/peer_id.hpp"
 #include "libtorrent/error_code.hpp"
 #include "libtorrent/tracker_manager.hpp" // for tracker_connection
+#include "libtorrent/address.hpp"
+#include "libtorrent/socket.hpp"  // for tcp::endpoint
+#include "libtorrent/string_view.hpp"
+
+// Add these includes for boost
+#include <boost/bind/bind.hpp>
+#include <boost/optional/optional_fwd.hpp>
 
 namespace libtorrent {
 
-	class tracker_manager;
-	struct http_connection;
-	class http_parser;
-	struct bdecode_node;
-	struct peer_entry;
+struct bind_info_t;  // Forward declaration
+class tracker_manager;
+struct http_connection;
+class http_parser;
+struct bdecode_node;
 
-	class TORRENT_EXTRA_EXPORT http_tracker_connection
-		: public tracker_connection
-	{
-	friend class tracker_manager;
-	public:
+class TORRENT_EXTRA_EXPORT http_tracker_connection : public tracker_connection
+{
+    friend class tracker_manager;
 
-		http_tracker_connection(
-			io_context& ios
-			, tracker_manager& man
-			, tracker_request req
-			, std::weak_ptr<request_callback> c);
+public:
+    http_tracker_connection(
+        io_context& ios,
+        tracker_manager& man,
+        tracker_request req,
+        std::weak_ptr<request_callback> c);
 
-		void start() override;
-		void close() override;
+    void start() override;
+    void close() override;
 
-	private:
+private:
+    std::shared_ptr<http_tracker_connection> shared_from_this()
+    {
+        return std::static_pointer_cast<http_tracker_connection>(
+            tracker_connection::shared_from_this());
+    }
 
-		std::shared_ptr<http_tracker_connection> shared_from_this()
-		{
-			return std::static_pointer_cast<http_tracker_connection>(
-				tracker_connection::shared_from_this());
-		}
+    void on_filter(http_connection& c, std::vector<tcp::endpoint>& endpoints);
+    bool on_filter_hostname(http_connection& c, string_view hostname);
+    void on_connect(http_connection& c);
+    void on_response(error_code const& ec, http_parser const& parser, span<char const> data);
 
-		void on_filter(http_connection& c, std::vector<tcp::endpoint>& endpoints);
-		bool on_filter_hostname(http_connection& c, string_view hostname);
-		void on_connect(http_connection& c);
-		void on_response(error_code const& ec, http_parser const& parser
-			, span<char const> data);
+    void on_timeout(error_code const&) override {}
 
-		void on_timeout(error_code const&) override {}
+    std::shared_ptr<http_connection> m_tracker_connection;
+    address m_tracker_ip;
+    io_context& m_ioc;
+};
 
-		std::shared_ptr<http_connection> m_tracker_connection;
-		address m_tracker_ip;
-		io_context& m_ioc;
-	};
+TORRENT_EXTRA_EXPORT tracker_response parse_tracker_response(
+    span<char const> data, error_code& ec,
+    tracker_request_flags_t flags, sha1_hash const& scrape_ih);
 
-	TORRENT_EXTRA_EXPORT tracker_response parse_tracker_response(
-		span<char const> data, error_code& ec
-		, tracker_request_flags_t flags, sha1_hash const& scrape_ih);
+TORRENT_EXTRA_EXPORT bool extract_peer_info(bdecode_node const& info,
+    peer_entry& ret, error_code& ec);
 
-	TORRENT_EXTRA_EXPORT bool extract_peer_info(bdecode_node const& info
-		, peer_entry& ret, error_code& ec);
-}
+} // namespace libtorrent
 
 #endif // TORRENT_HTTP_TRACKER_CONNECTION_HPP_INCLUDED

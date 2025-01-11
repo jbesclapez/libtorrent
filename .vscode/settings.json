@@ -1,0 +1,24 @@
+{
+    "files.associations": {
+        "*.page-template": "vue",
+        "*.layout-template": "vue",
+        "*.vue": "vue",
+        "regex": "cpp",
+        "sstream": "cpp",
+        "type_traits": "cpp",
+        "deque": "cpp",
+        "forward_list": "cpp",
+        "list": "cpp",
+        "vector": "cpp",
+        "xhash": "cpp",
+        "xstring": "cpp",
+        "xtree": "cpp",
+        "array": "cpp",
+        "bitset": "cpp",
+        "initializer_list": "cpp",
+        "random": "cpp",
+        "stack": "cpp",
+        "utility": "cpp",
+        "xutility": "cpp"
+    }
+}
