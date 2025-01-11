@@ -1,4 +1,4 @@
-.. image:: docs/img/logo-color-text.png
+.. image:: docs/img/GhostTracker_logo.png
 
 .. image:: https://github.com/arvidn/libtorrent/actions/workflows/windows.yml/badge.svg
     :target: https://github.com/arvidn/libtorrent/actions/workflows/windows.yml
