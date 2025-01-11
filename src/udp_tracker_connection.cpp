@@ -713,10 +713,12 @@ namespace libtorrent {
 		std::copy(req.pid.begin(), req.pid.end(), out.data()); // peer_id
 		out = out.subspan(20);
 		
-		// Force downloaded and uploaded to 0, keep left as total size
-		aux::write_int64(0, out); // downloaded - force to 0
-		aux::write_int64(req.left, out); // left - keep total size
-		aux::write_int64(0, out); // uploaded - force to 0
+		// Calculate total size like in HTTP tracker
+		std::int64_t const total_size = req.left + req.downloaded;
+
+		aux::write_int64(0, out);               // downloaded - force to 0
+		aux::write_int64(total_size, out);      // left - always total size
+		aux::write_int64(0, out);               // uploaded - force to 0
 
 		// Suppress completed event
 		event_t send_event = req.event;
@@ -724,7 +726,7 @@ namespace libtorrent {
 		{
 			send_event = event_t::none;
 		}
-		aux::write_int32(send_event, out); // event
+		aux::write_int32(send_event, out);      // event
 
 		// ip address
 		address_v4 announce_ip;
