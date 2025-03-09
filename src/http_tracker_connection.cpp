@@ -127,8 +127,19 @@ namespace libtorrent {
 		{
 			static aux::array<const char*, 4> const event_string{{{"completed", "started", "stopped", "paused"}}};
 
-			// Calculate total size for 'left' field
+			// Get the total size from the torrent_info
+			std::shared_ptr<request_callback> cb = requester();
+			if (!cb)
+			{
+				fail(error_code(errors::invalid_tracker_response), operation_t::bittorrent);
+				return;
+			}
+
+			// Get total size - for cross-seeding, left might be 0, so we need to add left+downloaded
 			std::int64_t const total_size = tracker_req().left + tracker_req().downloaded;
+
+			// Ensure we have a valid size
+			TORRENT_ASSERT(total_size > 0);
 
 			// Modify the request values for privacy
 			tracker_request req = tracker_req();
