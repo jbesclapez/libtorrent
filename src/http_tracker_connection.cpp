@@ -145,6 +145,8 @@ namespace libtorrent {
 			tracker_request req = tracker_req();
 			req.downloaded = 0;  // never report downloads
 			req.uploaded = 0;    // never report uploads
+			req.corrupt = 0;     // never report corrupt data
+			req.redundant = 0;   // never report redundant data
 			req.left = total_size;  // always report total size
 			
 			// Suppress completed event
