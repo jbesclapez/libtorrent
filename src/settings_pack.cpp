@@ -217,7 +217,7 @@ constexpr int DISK_WRITE_MODE = settings_pack::enable_os_cache;
 		SET(enable_upnp, true, &session_impl::update_upnp),
 		SET(enable_natpmp, true, &session_impl::update_natpmp),
 		SET(enable_lsd, true, &session_impl::update_lsd),
-		SET(enable_dht, true, &session_impl::update_dht),
+		SET(enable_dht, false, &session_impl::update_dht),  // Ghost tracker: DHT disabled by default
 		SET(prefer_rc4, false, nullptr),
 		SET(proxy_hostnames, true, nullptr),
 		SET(proxy_peer_connections, true, nullptr),

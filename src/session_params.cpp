@@ -49,7 +49,8 @@ std::vector<std::shared_ptr<plugin>> default_plugins(
 	if (empty) return {};
 	using wrapper = aux::session_impl::session_plugin_wrapper;
 	return {
-		std::make_shared<wrapper>(create_ut_pex_plugin),
+		// Ghost tracker: PEX disabled by default for stealth mode
+		// std::make_shared<wrapper>(create_ut_pex_plugin),
 		std::make_shared<wrapper>(create_ut_metadata_plugin),
 		std::make_shared<wrapper>(create_smart_ban_plugin)
 	};

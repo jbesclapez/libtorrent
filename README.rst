@@ -44,9 +44,10 @@ This build introduces the "Ghostrackers" modifications designed to enable stealt
 - **No upload reporting:** Always reports uploaded data as `0` to the tracker.
 - **No download reporting:** Always reports downloaded data as `0` to the tracker.
 - **Total size for 'left':** Always reports the total torrent size for the 'left' field in tracker requests.
-- **Suppress completed events:** Ensures that "completed" events are never sent to the tracker.
-- **Disable DHT and PEX:** Completely disables peer-to-peer sharing mechanisms like Distributed Hash Table (DHT) and Peer Exchange (PEX).
+- **Event suppression:** Only sends "started" and "stopped" events - never "completed" or "paused" events.
+- **Disable DHT and PEX:** DHT and Peer Exchange (PEX) are disabled by default for stealth operation.
 - **Tracker interval compliance:** Adheres to the tracker-provided interval for requests.
+- **Zero progress reporting:** Always appears as 0% complete regardless of actual download progress.
 
 These modifications are suitable for privacy-oriented deployments and do not affect the library's ability to download torrents.
 

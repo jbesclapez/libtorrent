@@ -3013,8 +3013,10 @@ namespace {
 
 		TORRENT_ASSERT(!m_paused || e == event_t::stopped);
 
+		// Ghost tracker modification: Never generate paused events
+		// Always appear as 0% complete, never report progress state changes
 		if (e == event_t::none && is_finished() && !is_seed())
-			e = event_t::paused;
+			e = event_t::none;  // Suppress paused event for ghost mode
 
 		tracker_request req;
 		if (settings().get_bool(settings_pack::apply_ip_filter_to_trackers)
@@ -3224,12 +3226,14 @@ namespace {
 					if (req.event == event_t::none)
 					{
 						if (!a.start_sent) req.event = event_t::started;
-						else if (!m_complete_sent
-							&& !a.complete_sent
-							&& is_seed())
-						{
-							req.event = event_t::completed;
-						}
+						// Ghost tracker modification: Never generate completed events
+						// Always appear as 0% complete, never report completion
+						// else if (!m_complete_sent
+						//	&& !a.complete_sent
+						//	&& is_seed())
+						// {
+						//	req.event = event_t::completed;
+						// }
 					}
 
 					req.triggered_manually = a.triggered_manually;

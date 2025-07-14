@@ -1,0 +1,49 @@
+name: GhostTrackers Build
+
+on:
+  push:
+    branches: [ GhostTrackers ]
+  pull_request:
+    branches: [ GhostTrackers ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout GhostTrackers branch
+      uses: actions/checkout@v4
+      with:
+        ref: GhostTrackers
+        submodules: true
+
+    - name: Set up MinGW
+      uses: egor-tensin/setup-mingw@v2
+      with:
+        platform: x64
+
+    - name: Clean and create directories
+      run: |
+        Remove-Item -Path "build", "install" -Recurse -Force -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Path "build", "install" -Force
+      shell: powershell
+
+    - name: Configure with CMake
+      working-directory: build
+      run: |
+        cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install"
+
+    - name: Build with MinGW Make
+      working-directory: build
+      run: |
+        mingw32-make -j$env:NUMBER_OF_PROCESSORS
+      shell: powershell
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: libtorrent-ghosttrackers
+        path: |
+          build/
+          install/ 
