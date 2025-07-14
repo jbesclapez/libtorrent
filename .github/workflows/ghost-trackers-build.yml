@@ -18,27 +18,33 @@ jobs:
         ref: GhostTrackers
         submodules: true
 
-    - name: Set up MinGW
-      uses: egor-tensin/setup-mingw@v2
+    - name: Setup MSYS2
+      uses: msys2/setup-msys2@v2
       with:
-        platform: x64
+        msystem: MINGW64
+        update: true
+        install: >-
+          mingw-w64-x86_64-toolchain
+          mingw-w64-x86_64-cmake
+          mingw-w64-x86_64-ninja
 
     - name: Clean and create directories
+      shell: msys2 {0}
       run: |
-        Remove-Item -Path "build", "install" -Recurse -Force -ErrorAction SilentlyContinue
-        New-Item -ItemType Directory -Path "build", "install" -Force
-      shell: powershell
+        rm -rf build install
+        mkdir -p build install
 
     - name: Configure with CMake
+      shell: msys2 {0}
       working-directory: build
       run: |
-        cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install"
+        cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="${{ github.workspace }}/install"
 
-    - name: Build with MinGW Make
+    - name: Build with Ninja
+      shell: msys2 {0}
       working-directory: build
       run: |
-        mingw32-make -j$env:NUMBER_OF_PROCESSORS
-      shell: powershell
+        ninja -j$(nproc)
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
