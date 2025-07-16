@@ -776,6 +776,7 @@ namespace libtorrent {
 		}
 
 #ifndef TORRENT_DISABLE_LOGGING
+		std::shared_ptr<request_callback> cb = requester();
 		if (cb && cb->should_log())
 		{
 			cb->debug_log("==> UDP_TRACKER_ANNOUNCE [%s]", aux::to_hex(req.info_hash).c_str());
