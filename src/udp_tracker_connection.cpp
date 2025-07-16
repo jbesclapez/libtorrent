@@ -705,19 +705,8 @@ namespace libtorrent {
 		TORRENT_ASSERT(i != m_connection_cache.end());
 		if (i == m_connection_cache.end()) return;
 
-		// Get the total size from the torrent_info
-		std::shared_ptr<request_callback> cb = requester();
-		if (!cb)
-		{
-			fail(error_code(errors::invalid_tracker_response), operation_t::bittorrent);
-			return;
-		}
-
-		// Get total size - for cross-seeding, left might be 0, so we need to add left+downloaded
-		std::int64_t const total_size = tracker_req().left + tracker_req().downloaded;
-
-		// Ensure we have a valid size
-		TORRENT_ASSERT(total_size > 0);
+		// Calculate total size for 'left' field
+		std::int64_t const total_size = req.left + req.downloaded;
 
 		aux::write_int64(i->second.connection_id, out); // connection_id
 		aux::write_int32(action_t::announce, out); // action (announce)
