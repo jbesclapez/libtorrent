@@ -705,8 +705,25 @@ namespace libtorrent {
 		TORRENT_ASSERT(i != m_connection_cache.end());
 		if (i == m_connection_cache.end()) return;
 
-		// Calculate total size for 'left' field
-		std::int64_t const total_size = req.left + req.downloaded;
+		// Ghost tracker: Use actual torrent file size, with fallback
+		std::int64_t total_size = req.total_size;
+		if (total_size <= 0)
+		{
+			// Fallback: req.left is already set to total torrent size in torrent.cpp
+			// Don't add req.downloaded as that would double-count for cross-seeding
+			total_size = req.left;
+			
+			// Only apply minimum if req.left is invalid (shouldn't happen with proper metadata)
+			if (total_size <= 0)
+			{
+				total_size = std::int64_t(1024 * 1024); // 1MB fallback for error cases only
+			}
+			
+#ifndef TORRENT_DISABLE_LOGGING
+			// Note: UDP doesn't have easy access to callback for logging
+			// Could add logging here if needed
+#endif
+		}
 
 		aux::write_int64(i->second.connection_id, out); // connection_id
 		aux::write_int32(action_t::announce, out); // action (announce)
@@ -716,9 +733,9 @@ namespace libtorrent {
 		std::copy(req.pid.begin(), req.pid.end(), out.data()); // peer_id
 		out = out.subspan(20);
 
-		// Modify what we report to tracker
+		// Ghost tracker: Modify what we report to tracker
 		aux::write_int64(0, out);          // downloaded - never report downloads
-		aux::write_int64(total_size, out); // left - always report total size
+		aux::write_int64(total_size, out); // left - always report actual torrent file size
 		aux::write_int64(0, out);          // uploaded - never report uploads
 
 		// Suppress completed event

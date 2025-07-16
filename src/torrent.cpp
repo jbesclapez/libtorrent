@@ -3031,7 +3031,20 @@ namespace {
 		req.downloaded = m_stat.total_payload_download() - m_total_failed_bytes;
 		req.uploaded = m_stat.total_payload_upload();
 		req.corrupt = m_total_failed_bytes;
-		req.left = value_or(bytes_left(), 16*1024);
+		// Ghost tracker: Always set the actual torrent file size for both fields
+		// This ensures consistent reporting regardless of resume state or edge cases
+		if (m_torrent_file && valid_metadata())
+		{
+			req.total_size = m_torrent_file->total_size();
+			req.left = m_torrent_file->total_size();  // ALWAYS report full size as "left"
+		}
+		else
+		{
+			// Fallback for edge cases where metadata isn't available
+			req.left = value_or(bytes_left(), 16*1024);
+			req.total_size = req.left + req.downloaded;
+		}
+		
 #ifdef TORRENT_SSL_PEERS
 		// if this torrent contains an SSL certificate, make sure
 		// any SSL tracker presents a certificate signed by it
@@ -3039,6 +3052,7 @@ namespace {
 #endif
 
 		req.redundant = m_total_redundant_bytes;
+		
 		// exclude redundant bytes if we should
 		if (!settings().get_bool(settings_pack::report_true_downloaded))
 		{

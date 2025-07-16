@@ -121,6 +121,7 @@ enum class event_t : std::uint8_t
 		std::int64_t left = -1;
 		std::int64_t corrupt = 0;
 		std::int64_t redundant = 0;
+		std::int64_t total_size = -1;  // Ghost tracker: actual torrent file size
 		std::uint16_t listen_port = 0;
 		event_t event = event_t::none;
 		tracker_request_flags_t kind = {};

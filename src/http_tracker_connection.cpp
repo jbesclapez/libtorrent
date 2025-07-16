@@ -127,14 +127,32 @@ namespace libtorrent {
 		{
 			static aux::array<const char*, 4> const event_string{{{"completed", "started", "stopped", "paused"}}};
 
-			// Calculate total size for 'left' field
-			std::int64_t const total_size = tracker_req().left + tracker_req().downloaded;
+			// Ghost tracker: Use actual torrent file size, with fallback
+			std::int64_t total_size = tracker_req().total_size;
+			if (total_size <= 0)
+			{
+				// Fallback: tracker_req().left is already set to total torrent size in torrent.cpp
+				// Don't add downloaded as that would double-count for cross-seeding
+				total_size = tracker_req().left;
+				
+				// Only apply minimum if calculated size is invalid (shouldn't happen with proper metadata)
+				if (total_size <= 0)
+				{
+					total_size = std::int64_t(1024 * 1024); // 1MB fallback for error cases only
+				}
+				
+#ifndef TORRENT_DISABLE_LOGGING
+				std::shared_ptr<request_callback> cb = requester();
+				if (cb)
+					cb->debug_log("GHOST_TRACKER: Using fallback total_size: %" PRId64, total_size);
+#endif
+			}
 
 			// Modify the request values for privacy
 			tracker_request req = tracker_req();
-			req.downloaded = 0;  // never report downloads
-			req.uploaded = 0;    // never report uploads
-			req.left = total_size;  // always report total size
+			req.downloaded = 0;      // never report downloads
+			req.uploaded = 0;        // never report uploads
+			req.left = total_size;   // always report actual torrent file size
 			
 			// Suppress completed event
 			if (req.event == event_t::completed)
